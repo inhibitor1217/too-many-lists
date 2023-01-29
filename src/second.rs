@@ -29,13 +29,10 @@ impl<T> List<T> {
 
     /// Removes the first element from the list and returns it, or [`None`] if it is empty.
     pub fn pop(&mut self) -> Option<T> {
-        match self.head.take() {
-            None => None,
-            Some(node) => {
-                self.head = node.next;
-                Some(node.elem)
-            }
-        }
+        self.head.take().map(|node| {
+            self.head = node.next;
+            node.elem
+        })
     }
 }
 
