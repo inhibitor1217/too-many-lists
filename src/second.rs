@@ -21,7 +21,7 @@ impl<T> List<T> {
     pub fn push(&mut self, elem: T) {
         let new_node = Node {
             elem,
-            next: core::mem::replace(&mut self.head, None),
+            next: self.head.take(),
         };
 
         self.head = Some(Box::new(new_node));
@@ -29,7 +29,7 @@ impl<T> List<T> {
 
     /// Removes the first element from the list and returns it, or [`None`] if it is empty.
     pub fn pop(&mut self) -> Option<T> {
-        match core::mem::replace(&mut self.head, None) {
+        match self.head.take() {
             None => None,
             Some(node) => {
                 self.head = node.next;
@@ -41,7 +41,7 @@ impl<T> List<T> {
 
 impl<T> Drop for List<T> {
     fn drop(&mut self) {
-        let mut cur_link = core::mem::replace(&mut self.head, None);
+        let mut cur_link = self.head.take();
         while let Some(mut boxed_node) = cur_link {
             cur_link = core::mem::replace(&mut boxed_node.next, None);
         }
