@@ -34,6 +34,16 @@ impl<T> List<T> {
             node.elem
         })
     }
+
+    /// Returns a reference to the first element.
+    pub fn peek(&self) -> Option<&T> {
+        self.head.as_ref().map(|node| &node.elem)
+    }
+
+    /// Returns a mutable reference to the first element.
+    pub fn peek_mut(&mut self) -> Option<&mut T> {
+        self.head.as_mut().map(|node| &mut node.elem)
+    }
 }
 
 impl<T> Drop for List<T> {
@@ -70,5 +80,27 @@ mod test {
 
         assert_eq!(list.pop(), Some(1));
         assert_eq!(list.pop(), None);
+    }
+
+    #[test]
+    fn peek() {
+        let mut list = List::new();
+
+        assert_eq!(list.peek(), None);
+        assert_eq!(list.peek_mut(), None);
+
+        list.push(1);
+        list.push(2);
+        list.push(3);
+
+        assert_eq!(list.peek(), Some(&3));
+        assert_eq!(list.peek_mut(), Some(&mut 3));
+
+        list.peek_mut().map(|value| {
+            *value = 42;
+        });
+
+        assert_eq!(list.peek(), Some(&42));
+        assert_eq!(list.pop(), Some(42));
     }
 }
