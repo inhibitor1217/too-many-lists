@@ -637,6 +637,42 @@ impl<'a, T> CursorMut<'a, T> {
             }
         }
     }
+
+    /// Removes the current element and returns it.
+    /// The cursor will be moved to the next element.
+    pub fn remove_current(&mut self) -> Option<T> {
+        if let Some(cur) = self.cur {
+            unsafe {
+                let boxed_node = Box::from_raw(cur.as_ptr());
+
+                boxed_node
+                    .prev
+                    .map(|prev| (*prev.as_ptr()).next = boxed_node.next);
+                boxed_node
+                    .next
+                    .map(|next| (*next.as_ptr()).prev = boxed_node.prev);
+
+                if boxed_node.prev.is_none() {
+                    self.list.head = boxed_node.next;
+                }
+                if boxed_node.next.is_none() {
+                    self.list.tail = boxed_node.prev;
+                }
+
+                self.cur = boxed_node.next;
+                if self.cur.is_none() {
+                    self.index = None;
+                }
+
+                self.list.len -= 1;
+
+                Some(boxed_node.elem)
+                // Box is dropped and memory is freed.
+            }
+        } else {
+            None
+        }
+    }
 }
 
 #[cfg(test)]
@@ -973,7 +1009,6 @@ mod test {
             &[10, 7, 1, 8, 2, 3, 4, 5, 6, 9]
         );
 
-        /* remove_current not impl'd
         let mut cursor = m.cursor_mut();
         cursor.move_next();
         cursor.move_prev();
@@ -988,11 +1023,10 @@ mod test {
         cursor.move_next();
         assert_eq!(cursor.remove_current(), Some(10));
         check_links(&m);
-        assert_eq!(m.iter().cloned().collect::<Vec<_>>(), &[1, 8, 2, 3, 4, 5, 6]);
-        */
-
-        let mut m: LinkedList<u32> = LinkedList::new();
-        m.extend([1, 8, 2, 3, 4, 5, 6]);
+        assert_eq!(
+            m.iter().cloned().collect::<Vec<_>>(),
+            &[1, 8, 2, 3, 4, 5, 6]
+        );
 
         let mut cursor = m.cursor_mut();
         cursor.move_next();
