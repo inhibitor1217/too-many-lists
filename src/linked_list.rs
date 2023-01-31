@@ -404,6 +404,95 @@ impl<T> DoubleEndedIterator for IntoIter<T> {
 }
 
 impl<T> ExactSizeIterator for IntoIter<T> {}
+
+pub struct CursorMut<'a, T> {
+    cur: Option<NonNull<Node<T>>>,
+    list: &'a mut LinkedList<T>,
+    index: Option<usize>,
+}
+
+impl<T> LinkedList<T> {
+    pub fn cursor_mut(&mut self) -> CursorMut<'_, T> {
+        CursorMut {
+            cur: None,
+            list: self,
+            index: None,
+        }
+    }
+}
+
+impl<'a, T> CursorMut<'a, T> {
+    /// Retreive a current index of the cursor.
+    pub fn index(&self) -> Option<usize> {
+        self.index
+    }
+
+    /// Move the cursor to the next position.
+    pub fn move_next(&mut self) {
+        if let Some(cur) = self.cur {
+            unsafe {
+                self.cur = (*cur.as_ptr()).next;
+                if self.cur.is_some() {
+                    self.index = Some(self.index.unwrap() + 1);
+                } else {
+                    // We just moved into the ghost element.
+                    self.index = None;
+                }
+            }
+        } else if !self.list.is_empty() {
+            // We're at the ghost element, and there is a head element.
+            self.cur = self.list.head;
+            self.index = Some(0);
+        } else {
+            // The list is empty, do nothing.
+        }
+    }
+
+    /// Move the cursor to the previous position.
+    pub fn move_prev(&mut self) {
+        if let Some(cur) = self.cur {
+            unsafe {
+                self.cur = (*cur.as_ptr()).prev;
+                if self.cur.is_some() {
+                    self.index = Some(self.index.unwrap() - 1);
+                } else {
+                    // We just moved into the ghost element.
+                    self.index = None;
+                }
+            }
+        } else if !self.list.is_empty() {
+            // We're at the ghost element, and there is a tail element.
+            self.cur = self.list.tail;
+            self.index = Some(self.list.len - 1);
+        } else {
+            // The list is empty, do nothing.
+        }
+    }
+
+    /// Retrieve an element at the cursor.
+    pub fn current(&mut self) -> Option<&mut T> {
+        unsafe { self.cur.map(|node| &mut (*node.as_ptr()).elem) }
+    }
+
+    /// Retrieve the element next to the cursor.
+    pub fn peek_next(&mut self) -> Option<&mut T> {
+        unsafe {
+            self.cur
+                .map_or_else(|| self.list.head, |node| (*node.as_ptr()).next)
+                .map(|node| &mut (*node.as_ptr()).elem)
+        }
+    }
+
+    /// Retrieve the element before the cursor.
+    pub fn peek_prev(&mut self) -> Option<&mut T> {
+        unsafe {
+            self.cur
+                .map_or_else(|| self.list.tail, |node| (*node.as_ptr()).prev)
+                .map(|node| &mut (*node.as_ptr()).elem)
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::LinkedList;
@@ -671,5 +760,46 @@ mod test {
         assert_eq!(map.remove(&list2), Some("list2"));
 
         assert!(map.is_empty());
+    }
+
+    #[test]
+    fn cursor_move_peek() {
+        let mut m: LinkedList<u32> = LinkedList::new();
+        m.extend([1, 2, 3, 4, 5, 6]);
+        let mut cursor = m.cursor_mut();
+        cursor.move_next();
+        assert_eq!(cursor.current(), Some(&mut 1));
+        assert_eq!(cursor.peek_next(), Some(&mut 2));
+        assert_eq!(cursor.peek_prev(), None);
+        assert_eq!(cursor.index(), Some(0));
+        cursor.move_prev();
+        assert_eq!(cursor.current(), None);
+        assert_eq!(cursor.peek_next(), Some(&mut 1));
+        assert_eq!(cursor.peek_prev(), Some(&mut 6));
+        assert_eq!(cursor.index(), None);
+        cursor.move_next();
+        cursor.move_next();
+        assert_eq!(cursor.current(), Some(&mut 2));
+        assert_eq!(cursor.peek_next(), Some(&mut 3));
+        assert_eq!(cursor.peek_prev(), Some(&mut 1));
+        assert_eq!(cursor.index(), Some(1));
+
+        let mut cursor = m.cursor_mut();
+        cursor.move_prev();
+        assert_eq!(cursor.current(), Some(&mut 6));
+        assert_eq!(cursor.peek_next(), None);
+        assert_eq!(cursor.peek_prev(), Some(&mut 5));
+        assert_eq!(cursor.index(), Some(5));
+        cursor.move_next();
+        assert_eq!(cursor.current(), None);
+        assert_eq!(cursor.peek_next(), Some(&mut 1));
+        assert_eq!(cursor.peek_prev(), Some(&mut 6));
+        assert_eq!(cursor.index(), None);
+        cursor.move_prev();
+        cursor.move_prev();
+        assert_eq!(cursor.current(), Some(&mut 5));
+        assert_eq!(cursor.peek_next(), Some(&mut 6));
+        assert_eq!(cursor.peek_prev(), Some(&mut 4));
+        assert_eq!(cursor.index(), Some(4));
     }
 }
