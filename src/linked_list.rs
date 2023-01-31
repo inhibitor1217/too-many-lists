@@ -146,7 +146,7 @@ impl<T> LinkedList<T> {
 
     /// Clears the collection.
     pub fn clear(&mut self) {
-        while let Some(_) = self.pop_front() {}
+        while self.pop_front().is_some() {}
     }
 }
 
@@ -194,10 +194,6 @@ impl<T: PartialEq> PartialEq for LinkedList<T> {
     fn eq(&self, other: &Self) -> bool {
         self.len() == other.len() && self.iter().eq(other)
     }
-
-    fn ne(&self, other: &Self) -> bool {
-        self.len() != other.len() || self.iter().ne(other)
-    }
 }
 
 impl<T: Eq> Eq for LinkedList<T> {}
@@ -225,7 +221,7 @@ impl<T: Hash> Hash for LinkedList<T> {
 
 impl<T> Drop for LinkedList<T> {
     fn drop(&mut self) {
-        while let Some(_) = self.pop_front() {}
+        while self.pop_front().is_some() {}
     }
 }
 
@@ -511,7 +507,7 @@ impl<'a, T> CursorMut<'a, T> {
                 };
 
                 self.list.head = Some(cur);
-                self.list.len = self.list.len - self.index.unwrap();
+                self.list.len -= self.index.unwrap();
                 self.index = Some(0);
 
                 splitted_list
