@@ -1,4 +1,4 @@
-use core::{fmt::Debug, hash::Hash, marker::PhantomData, ptr::NonNull};
+use core::{fmt::Debug, hash::Hash, marker::PhantomData, mem, ptr::NonNull};
 
 pub struct LinkedList<T> {
     head: Option<NonNull<Node<T>>>,
@@ -489,6 +489,65 @@ impl<'a, T> CursorMut<'a, T> {
             self.cur
                 .map_or_else(|| self.list.tail, |node| (*node.as_ptr()).prev)
                 .map(|node| &mut (*node.as_ptr()).elem)
+        }
+    }
+
+    /// Creates a new list by splitting the list before the cursor, returning the newly created list.
+    /// The cursor will remain at the original list.
+    pub fn split_before(&mut self) -> LinkedList<T> {
+        if let Some(cur) = self.cur {
+            unsafe {
+                let prev = (*cur.as_ptr()).prev;
+                if let Some(prev) = prev {
+                    (*prev.as_ptr()).next = None;
+                    (*cur.as_ptr()).prev = None;
+                }
+
+                let splitted_list = LinkedList {
+                    head: self.list.head,
+                    tail: prev,
+                    len: self.index.unwrap(),
+                    _marker: PhantomData,
+                };
+
+                self.list.head = Some(cur);
+                self.list.len = self.list.len - self.index.unwrap();
+                self.index = Some(0);
+
+                splitted_list
+            }
+        } else {
+            // Ghost case, the original list becomes empty.
+            mem::replace(self.list, LinkedList::new())
+        }
+    }
+
+    /// Creates a new list by splitting the list after the cursor, returning the newly created list.
+    /// The cursor will remain at the original list.
+    pub fn split_after(&mut self) -> LinkedList<T> {
+        if let Some(cur) = self.cur {
+            unsafe {
+                let next = (*cur.as_ptr()).next;
+                if let Some(next) = next {
+                    (*next.as_ptr()).prev = None;
+                    (*cur.as_ptr()).next = None;
+                }
+
+                let splitted_list = LinkedList {
+                    head: next,
+                    tail: self.list.tail,
+                    len: self.list.len - self.index.unwrap(),
+                    _marker: PhantomData,
+                };
+
+                self.list.tail = Some(cur);
+                self.list.len = self.index.unwrap();
+
+                splitted_list
+            }
+        } else {
+            // Ghost case, the original list becomes empty.
+            mem::replace(self.list, LinkedList::new())
         }
     }
 }
